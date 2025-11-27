@@ -76,6 +76,7 @@ func AirflowProvider() *schema.Provider {
 			"airflow_pool":       resourcePool(),
 			"airflow_role":       resourceRole(),
 			"airflow_user":       resourceUser(),
+			"airflow_user_roles": resourceUserRoles(),
 		},
 		// ConfigureContextFunc: providerConfigure,
 	}
@@ -87,10 +88,10 @@ func AirflowProvider() *schema.Provider {
 	return provider
 }
 
-func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var transport http.RoundTripper
 
-	if disableSSl := d.Get("disable_ssl_verification").(bool); disableSSl {
+	if disableSSL := d.Get("disable_ssl_verification").(bool); disableSSL {
 		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -102,7 +103,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Transport: transport,
 	}
 
-	ctx = context.Background()
+	ctx := context.Background()
 	endpoint := d.Get("base_endpoint").(string)
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -127,7 +128,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		ctx = context.WithValue(ctx, airflow.ContextBasicAuth, cred)
 	}
 
-	path := strings.TrimRight(u.Path, "/")
+	path := strings.TrimSuffix(u.Path, "/")
 
 	clientConf := &airflow.Configuration{
 		Scheme:     u.Scheme,
