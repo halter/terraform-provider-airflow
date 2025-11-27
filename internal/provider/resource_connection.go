@@ -53,8 +53,22 @@ func resourceConnection() *schema.Resource {
 				ValidateFunc: validation.IsPortNumberOrZero,
 			},
 			"password": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
+			},
+			"password_wo": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				WriteOnly:    true,
+				ExactlyOneOf: []string{"password", "password_wo"},
+				RequiredWith: []string{"password_wo_version"},
+			},
+			"password_wo_version": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Description:  `Triggers update of password_wo write-only. For more info see [updating write-only attributes](https://developer.hashicorp.com/terraform/language/manage-sensitive-data/write-only)`,
+				RequiredWith: []string{"password_wo"},
 			},
 			"extra": {
 				Type:             schema.TypeString,
@@ -114,7 +128,11 @@ func resourceConnectionCreate(ctx context.Context, d *schema.ResourceData, m int
 		conn.SetPort(int32(v.(int)))
 	}
 
-	conn.SetPassword(d.Get("password").(string))
+	if v, ok := d.GetOk("password"); ok {
+		conn.SetPassword(v.(string))
+	} else if v, ok := d.GetOk("password_wo"); ok {
+		conn.SetPassword(v.(string))
+	}
 
 	if v, ok := d.GetOk("extra"); ok {
 		conn.SetExtra(v.(string))
@@ -143,19 +161,39 @@ func resourceConnectionRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("failed to get connection `%s` from Airflow: %s", d.Id(), err)
 	}
 
-	d.Set("connection_id", connection.GetConnectionId())
-	d.Set("conn_type", connection.GetConnType())
-	d.Set("host", connection.GetHost())
-	d.Set("login", connection.GetLogin())
-	d.Set("schema", connection.GetSchema())
-	d.Set("port", connection.GetPort())
-	d.Set("extra", connection.GetExtra())
-	d.Set("description", connection.GetDescription())
+	if err := d.Set("connection_id", connection.GetConnectionId()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("conn_type", connection.GetConnType()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("host", connection.GetHost()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("login", connection.GetLogin()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("schema", connection.GetSchema()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("port", connection.GetPort()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("extra", connection.GetExtra()); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("description", connection.GetDescription()); err != nil {
+		return diag.FromErr(err)
+	}
 
 	if v, ok := connection.GetPasswordOk(); ok {
-		d.Set("password", v)
+		if err := d.Set("password", v); err != nil {
+			return diag.FromErr(err)
+		}
 	} else if v, ok := d.GetOk("password"); ok {
-		d.Set("password", v)
+		if err := d.Set("password", v); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return nil
@@ -203,6 +241,8 @@ func resourceConnectionUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if v, ok := d.GetOk("password"); ok && v.(string) != "" {
+		conn.SetPassword(v.(string))
+	} else if v, ok := d.GetOk("password_wo"); ok && v.(string) != "" {
 		conn.SetPassword(v.(string))
 	}
 

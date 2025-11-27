@@ -18,13 +18,13 @@ func init() {
 }
 
 func TestProvider(t *testing.T) {
-	if err := AirflowProvider().InternalValidate(); err != nil {
+	if err := testAccProvider.InternalValidate(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 }
 
 func TestProvider_impl(t *testing.T) {
-	var _ *schema.Provider = AirflowProvider()
+	var _ = AirflowProvider()
 }
 
 func testAccPreCheck(t *testing.T) {
@@ -32,7 +32,7 @@ func testAccPreCheck(t *testing.T) {
 	_, userOk := os.LookupEnv("AIRFLOW_API_USERNAME")
 	_, passOk := os.LookupEnv("AIRFLOW_API_PASSWORD")
 
-	if tokenOk && !(userOk || passOk) {
+	if tokenOk && !userOk && !passOk {
 		t.Fatal("AIRFLOW_OAUTH2_TOKEN OR AIRFLOW_API_USERNAME/AIRFLOW_API_PASSWORD must be set for acceptance tests")
 	}
 
